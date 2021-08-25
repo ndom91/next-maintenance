@@ -3,10 +3,10 @@ import Notify from "@/newtelco-utils/notification"
 import { Tag, Whisper, Tooltip } from "rsuite"
 
 export const CustomerCid = ({ data }) => {
-  const { kundenCID } = data
+  const { kundencid } = data
   const [hover, setHover] = useState(false)
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(kundenCID)
+    navigator.clipboard.writeText(kundencid)
     Notify("info", "Customer CID Copied to Clipboard")
   }
   return (
@@ -14,7 +14,7 @@ export const CustomerCid = ({ data }) => {
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      {kundenCID}
+      {kundencid}
       <Whisper
         placement="bottom"
         speaker={<Tooltip>Copy to Clipboard</Tooltip>}

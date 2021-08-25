@@ -37,7 +37,7 @@ const Companies = () => {
       },
       {
         headerName: "Domain",
-        field: "mailDomain",
+        field: "maildomain",
         width: 100,
       },
       {
@@ -48,7 +48,7 @@ const Companies = () => {
       },
       {
         headerName: "Recipient",
-        field: "maintenanceRecipient",
+        field: "maintenancerecipient",
       },
     ],
     rowSelection: "single",
@@ -71,7 +71,7 @@ const Companies = () => {
     fetch("/api/companies")
       .then((resp) => resp.json())
       .then((data) => {
-        setRowData(data.companies)
+        setRowData(data)
         gridApi.current.hideOverlay()
       })
       .catch((err) => console.error(err))
@@ -88,10 +88,12 @@ const Companies = () => {
   }
 
   const handleDelete = () => {
-    fetch(`/api/settings/delete/companies?id=${companyToDelete.id}`)
+    fetch(`/api/settings/companies?id=${companyToDelete.id}`, {
+      method: "DELETE",
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.deleteCompanyQuery.affectedRows === 1) {
+        if (data.id) {
           Notify("success", `${companyToDelete.name} Deleted`)
         } else {
           Notify("warning", "Error", data.err)
@@ -119,51 +121,56 @@ const Companies = () => {
   }
 
   const handleAddCompany = () => {
-    fetch(
-      `/api/settings/add/companies?name=${encodeURIComponent(
-        newName
-      )}&domain=${encodeURIComponent(newDomain)}&recipient=${encodeURIComponent(
-        newRecipient
-      )}`
-    )
+    fetch(`/api/settings/companies`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: newName,
+        domain: newDomain,
+        recipient: newRecipient,
+      }),
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        const { insertId, affectedRows, warningCount } = data.insertCompanyQuery
-        if (affectedRows === 1 && warningCount === 0) {
+        if (data.id) {
           Notify("success", `${newName} Added`)
+          const newRowData = rowData
+          newRowData.push({
+            id: data.id,
+            mailDomain: newDomain,
+            maintenanceRecipient: newRecipient,
+            name: newName,
+          })
+          setRowData(newRowData)
+          gridApi.current.setRowData(newRowData)
         } else {
           Notify("warning", "Error", data.err)
         }
-        const newRowData = rowData
-        newRowData.push({
-          id: insertId,
-          mailDomain: newDomain,
-          maintenanceRecipient: newRecipient,
-          name: newName,
-        })
-        setRowData(newRowData)
         setOpenCompanyModal(!openCompanyModal)
-        gridApi.current.setRowData(newRowData)
       })
       .catch((err) => console.error(err))
   }
 
   const handleCellEdit = (params) => {
-    const id = params.data.id
-    const newName = params.data.name
-    const newDomain = params.data.mailDomain
-    const newRecipient = params.data.maintenanceRecipient
+    const { id, name, mailDomain, maintenanceRecipient } = params.data
 
-    fetch(
-      `/api/settings/edit/companies?id=${id}&name=${encodeURIComponent(
-        newName
-      )}&domain=${encodeURIComponent(newDomain)}&recipient=${encodeURIComponent(
-        newRecipient
-      )}`
-    )
+    fetch(`/api/settings/companies`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id,
+        name,
+        domain: mailDomain,
+        recipient: maintenanceRecipient,
+      }),
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.updateCompanyQuery.affectedRows === 1) {
+        if (data.id) {
           Notify("success", `${newName} Updated`)
         } else {
           Notify("warning", "Error", data.err)
@@ -273,7 +280,9 @@ const Companies = () => {
                     />
                   </FormGroup>
                   <FormGroup>
-                    <ControlLabel>Recipients</ControlLabel>
+                    <ControlLabel>
+                      Recipients <small>(optional)</small>
+                    </ControlLabel>
                     <Input
                       key="input-recipient"
                       name="recipients"
@@ -321,20 +330,6 @@ const Companies = () => {
       )}
     </div>
   )
-}
-
-Companies.getInitialProps = async ({ req }) => {
-  const host = req && (req.headers["x-forwarded-host"] ?? req.headers["host"])
-  let protocol = "https:"
-  if (host.indexOf("localhost") > -1) {
-    protocol = "http:"
-  }
-  const pageRequest = `${protocol}//${host}/api/settings/companies`
-  const res = await fetch(pageRequest)
-  const json = await res.json()
-  return {
-    jsonData: json,
-  }
 }
 
 export default Companies

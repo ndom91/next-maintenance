@@ -62,8 +62,8 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
   const [openRescheduleModal, setOpenRescheduleModal] = useState(false)
   const [openConfirmDeleteModal, setOpenConfirmDeleteModal] = useState(false)
   const [reschedule, setReschedule] = useState({
-    startDateTime: null,
-    endDateTime: null,
+    sdt: null,
+    edt: null,
     impact: "",
     reason: "",
   })
@@ -76,7 +76,7 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
     fetch(`/api/reschedule?id=${maintId}`)
       .then((resp) => resp.json())
       .then((data) => {
-        setRescheduleData(data.reschedules)
+        setRescheduleData(data)
       })
       .catch((err) => console.error(`Error Loading Reschedules - ${err}`))
   }, [maintId, setRescheduleData])
@@ -99,13 +99,13 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
       },
       {
         headerName: "Start",
-        field: "startDateTime",
+        field: "sdt",
         width: 170,
         cellRenderer: "startdateTime",
       },
       {
         headerName: "End",
-        field: "endDateTime",
+        field: "edt",
         width: 170,
         cellRenderer: "enddateTime",
       },
@@ -150,8 +150,9 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
     loadingOverlayComponent: "customLoadingOverlay",
     context: {
       moveCalendarEntry: handleCalendarUpdate,
-      toggleRescheduleSentBtn: toggleRescheduleSentBtn,
+      // toggleRescheduleSentBtn: toggleRescheduleSentBtn,
       toggleRescheduleDelete: toggleConfirmDeleteRescheduleModal,
+      maintId,
     },
     frameworkComponents: {
       startdateTime: StartDateTime,
@@ -175,22 +176,22 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
 
   const handleRescheduleStartDateTimeChange = (date) => {
     const startDateTime = moment(date[0]).format("YYYY-MM-DD HH:mm:ss")
-    setReschedule({ ...reschedule, startDateTime })
+    setReschedule({ ...reschedule, sdt: startDateTime })
   }
 
   const handleRescheduleEndDateTimeChange = (date) => {
     const endDateTime = moment(date[0]).format("YYYY-MM-DD HH:mm:ss")
-    setReschedule({ ...reschedule, endDateTime })
+    setReschedule({ ...reschedule, edt: endDateTime })
   }
 
   const handleRescheduleSave = () => {
     const { timezone } = reschedule
     const newStartDateTime = moment
-      .tz(reschedule.startDateTime, timezone)
+      .tz(reschedule.sdt, timezone)
       .utc()
       .format("YYYY-MM-DD HH:mm:ss")
     const newEndDateTime = moment
-      .tz(reschedule.endDateTime, timezone)
+      .tz(reschedule.edt, timezone)
       .utc()
       .format("YYYY-MM-DD HH:mm:ss")
     if (reschedule.reason === "" || reschedule.impact === "") {
@@ -198,13 +199,13 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
       return
     }
 
-    fetch("/api/reschedule/save", {
-      method: "post",
+    fetch("/api/reschedule", {
+      method: "POST",
       body: JSON.stringify({
         mid: maintId,
         impact: reschedule.impact,
-        sdt: newStartDateTime,
-        edt: newEndDateTime,
+        sdt: moment(newStartDateTime).format(),
+        edt: moment(newEndDateTime).format(),
         rcounter: rescheduleData.length + 1,
         user: user,
         reason: rescheduleReasons.find(
@@ -212,20 +213,19 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
         ).label,
       }),
       headers: {
-        "Access-Control-Allow-Origin": "*",
         "Content-Type": "application/json",
       },
     })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.insertRescheduleQuery.affectedRows === 1) {
+        if (data.id) {
           setOpenRescheduleModal(!openRescheduleModal)
           Notify("success", "Reschedule Save Complete")
           const data = rescheduleData
           data.push({
             rcounter: rescheduleData.length + 1,
-            startDateTime: moment(newStartDateTime).format(),
-            endDateTime: moment(newEndDateTime).format(),
+            sdt: moment(newStartDateTime).format(),
+            edt: moment(newEndDateTime).format(),
             impact: reschedule.impact,
             reason: rescheduleReasons.find(
               (reason) => reason.value === reschedule.reason
@@ -238,8 +238,8 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
           setReschedule({
             impact: "",
             reason: "",
-            startDateTime: null,
-            endDateTime: null,
+            sdt: null,
+            edt: null,
           })
 
           rescheduleGridApi.current.setRowData(data)
@@ -247,85 +247,84 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
       })
       .catch((err) => console.error(`Error Saving Reschedule - ${err}`))
 
-    fetch(`/api/reschedule/increment?id=${maintId}`).catch((err) =>
+    fetch(`/api/reschedule?inc=true&id=${maintId}`).catch((err) =>
       console.error(`Error Incrementing Reschedule - ${err}`)
     )
   }
 
   const handleRescheduleCellEdit = (params) => {
     const { rcounter } = params.data
-    const newStartDateTime = moment(params.data.startDateTime).format(
+    const newStartDateTime = moment(params.data.sdt).format(
       "YYYY.MM.DD HH:mm:ss"
     )
-    const newEndDateTime = moment(params.data.endDateTime).format(
-      "YYYY.MM.DD HH:mm:ss"
-    )
+    const newEndDateTime = moment(params.data.edt).format("YYYY.MM.DD HH:mm:ss")
     const newImpact = params.data.impact
 
-    fetch("/api/reschedule/edit", {
-      method: "post",
+    fetch("/api/reschedule", {
+      method: "PUT",
       body: JSON.stringify({
         mid: maintId,
         impact: newImpact,
-        sdt: newStartDateTime,
-        edt: newEndDateTime,
-        rcounter: rcounter,
-        user: user,
+        sdt: moment(newStartDateTime).format(),
+        edt: moment(newEndDateTime).format(),
+        rcounter,
+        user,
       }),
       headers: {
-        "Access-Control-Allow-Origin": "*",
         "Content-Type": "application/json",
       },
     })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.editRescheduleQuery.affectedRows === 1) {
+        if (data.id) {
           Notify("success", "Reschedule Edit Success")
         }
       })
       .catch((err) => console.error(`Reschedule Edit Error - ${err}`))
   }
 
-  function toggleRescheduleSentBtn(rcounter) {
-    const newRescheduleData = rescheduleData
-    // TODO: fix dis!
-    // const reschedIndex = newRescheduleData.findIndex(el => el.rcounter === rcounter)
-    // console.log(reschedIndex, newRescheduleData, rcounter)
-    // console.log(newRescheduleData, rcounter, rcounter - 1)
-    const currentSentStatus = newRescheduleData[rcounter - 1].sent
-    let newSentStatus
-    if (currentSentStatus === 1) {
-      newRescheduleData[rcounter - 1].sent = 0
-      newSentStatus = 0
-    } else if (currentSentStatus === 0) {
-      newRescheduleData[rcounter - 1].sent = 1
-      newSentStatus = 1
-    }
-    setRescheduleData(newRescheduleData)
+  // function toggleRescheduleSentBtn(rcounter, data) {
+  //   console.log(rcounter, data)
+  //   const newRescheduleData = rescheduleData
+  //   // TODO: fix dis!
 
-    fetch("/api/reschedule/sent", {
-      method: "post",
-      body: JSON.stringify({
-        mid: maintId,
-        rcounter: rcounter,
-        user: user,
-        setn: newSentStatus,
-      }),
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json",
-      },
-    })
-      .then((resp) => resp.json())
-      .then((data) => {
-        if (data.editRescheduleQuery.affectedRows === 1) {
-          Notify("success", "Reschedule Sent Change Success")
-        }
-      })
-      .catch((err) => console.error(`Reschedule Sent Change Error - ${err}`))
+  //   // const reschedIndex = newRescheduleData.findIndex(el => el.rcounter === rcounter)
+  //   // console.log(reschedIndex, newRescheduleData, rcounter)
+  //   // console.log(newRescheduleData, rcounter, rcounter - 1)
+  //   console.log(newRescheduleData)
+  //   const currentSentStatus = newRescheduleData[rcounter - 1].sent
+  //   let newSentStatus
+  //   if (currentSentStatus === 1) {
+  //     newRescheduleData[rcounter - 1].sent = 0
+  //     newSentStatus = 0
+  //   } else if (currentSentStatus === 0) {
+  //     newRescheduleData[rcounter - 1].sent = 1
+  //     newSentStatus = 1
+  //   }
+  //   setRescheduleData(newRescheduleData)
 
-    rescheduleGridApi.current.refreshCells()
-  }
+  //   fetch("/api/reschedule?sent=true", {
+  //     method: "PUT",
+  //     body: JSON.stringify({
+  //       mid: maintId,
+  //       rcounter: rcounter,
+  //       user: user,
+  //       setn: newSentStatus,
+  //     }),
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //     },
+  //   })
+  //     .then((resp) => resp.json())
+  //     .then((data) => {
+  //       if (data.id) {
+  //         Notify("success", "Reschedule Sent Change Success")
+  //       }
+  //     })
+  //     .catch((err) => console.error(`Reschedule Sent Change Error - ${err}`))
+
+  //   rescheduleGridApi.current.refreshCells()
+  // }
 
   function toggleConfirmDeleteRescheduleModal() {
     if (rescheduleGridApi.current) {
@@ -340,22 +339,20 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
   }
 
   const handleDeleteReschedule = () => {
-    fetch("/api/reschedule/delete", {
-      method: "post",
+    fetch("/api/reschedule", {
+      method: "DELETE",
       body: JSON.stringify({
         mid: maintId,
         rcounter: rescheduleToDelete.rcounter,
-        user: user,
+        user,
       }),
-      mode: "cors",
       headers: {
-        "Access-Control-Allow-Origin": "*",
         "Content-Type": "application/json",
       },
     })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.deleteRescheduleQuery.affectedRows === 1) {
+        if (data.id) {
           Notify("success", "Reschedule Delete Success")
           const newRescheduleData = rescheduleData.filter(
             (resched) => resched.rcounter !== rescheduleToDelete.rcounter
@@ -488,7 +485,7 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
                       data-enable-time
                       options={{ time_24hr: "true", allowInput: "true" }}
                       className="flatpickr end-date-time"
-                      value={reschedule.startDateTime || null}
+                      value={reschedule.sdt || null}
                       onChange={(date) =>
                         handleRescheduleStartDateTimeChange(date)
                       }
@@ -500,7 +497,7 @@ const RescheduleGrid = ({ maintId, user, handleCalendarUpdate }) => {
                       data-enable-time
                       options={{ time_24hr: "true", allowInput: "true" }}
                       className="flatpickr end-date-time"
-                      value={reschedule.endDateTime || null}
+                      value={reschedule.edt || null}
                       onChange={(date) =>
                         handleRescheduleEndDateTimeChange(date)
                       }

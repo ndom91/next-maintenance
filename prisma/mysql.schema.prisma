@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Changelog {
+  id       Int            @id @default(autoincrement())
+  maintenanceId Int       @map("mid")
+  maintenance Maintenance @relation(fields: [maintenanceId], references: [id])
+  user     String         @db.VarChar(64)
+  action   String         @db.VarChar(128)
+  field    String?        @db.VarChar(128)
+  datetime DateTime       @default(now()) @db.DateTime(0)
+  @@map("changelog")
+}
+
+model Comment {
+  id       Int         @id @default(autoincrement())
+  maintId  Int
+  maint    Maintenance @relation(fields: [maintId], references: [id])
+  body     String      @db.VarChar(1024)
+  datetime DateTime    @default(now()) @db.Timestamp(0)
+  user     String      @db.VarChar(128)
+  @@map("comments")
+}
+
+model Company {
+  id                   Int     @id @default(autoincrement())
+  name                 String  @db.VarChar(256)
+  mailDomain           String  @db.VarChar(64)
+  maintenanceRecipient String? @db.VarChar(255)
+  lieferantCompany     Maintenance[]
+  kundeCompany         CustomerCircuit[]
+  freezeCompany        Freeze[]
+  lieferantCidCo       SupplierCircuit[]
+
+  @@index([mailDomain], name: "domains")
+  @@map("companies")
+}
+
+model Freeze {
+  id            Int      @id @default(autoincrement())
+  companyId     Int
+  company       Company  @relation(fields: [companyId], references: [id])
+  startDateTime DateTime @db.DateTime(0)
+  endDateTime   DateTime @db.DateTime(0)
+  notes         String?  @db.LongText
+  @@map("freeze")
+}
+
+model CustomerCircuit {
+  id           Int              @id @default(autoincrement())
+  lieferantCID Int?
+  lieferant    SupplierCircuit? @relation(fields: [lieferantCID], references: [id])
+  kundenCID    String           @db.VarChar(1700)
+  protected    String           @db.VarChar(16)
+  companyId    Int              @map("kunde")
+  kundeCompany Company          @relation(fields: [companyId], references: [id])
+
+  @@index([companyId], name: "kunde")
+  @@index([lieferantCID], name: "lieferantCID")
+  @@map("kundenCID")
+}
+
+model SupplierCircuit {
+  id        Int     @id @default(autoincrement())
+  companyId Int     @map("lieferant")
+  company   Company @relation(fields: [companyId], references: [id])
+  derenCID  String  @db.VarChar(128)
+  kundenCID CustomerCircuit[]
+  // maintenance Maintenance[]
+
+  @@index([companyId], name: "lieferant")
+  @@map("lieferantCID")
+}
+
+model Maintenance {
+  id                  Int       @id @default(autoincrement())
+  maileingang         DateTime? @db.DateTime(0)
+  senderMaintenanceId String?   @db.VarChar(256)
+  receivedmail        String?   @db.VarChar(256)
+  bearbeitetvon       String?   @db.VarChar(128)
+  companyId           Int       @map("lieferant")
+  lieferantCompany    Company   @relation(fields: [companyId], references: [id])
+  derenCIDid          String    @db.VarChar(256) // Array of LieferantCID's i.e. "[12,48,38]"
+  // List of primitive types not yet supported by mysql connector in prisma
+  // derenCIDid          Int[]    @db.VarChar(256) // Array of LieferantCID's i.e. "[12,48,38]"
+  // supplierCircuits    SupplierCircuit @relation(fields: [derenCIDid], references: [id])
+  startDateTime       DateTime? @db.DateTime(0)
+  endDateTime         DateTime? @db.DateTime(0)
+  timezone            String?   @db.VarChar(64)
+  timezoneLabel       String?   @db.VarChar(128)
+  postponed           String?   @db.VarChar(256)
+  reason              String?   @db.VarChar(256)
+  impact              String?   @db.VarChar(256)
+  location            String?   @db.VarChar(256)
+  maintNote           String?   @db.VarChar(512)
+  notes               String?   @db.LongText
+  mailSentAt          DateTime? @db.DateTime(0)
+  done                Boolean   @default(false)
+  inBearbeitung       Boolean   @default(false)
+  updatedAt           DateTime? @default(now()) @db.Timestamp(0)
+  updatedBy           String?   @db.VarChar(64)
+  active              Boolean   @default(true)
+  cancelled           Boolean   @default(false)
+  emergency           Boolean   @default(false)
+  betroffeneKunden    String?   @db.VarChar(1024)
+  betroffeneCIDs      String?   @db.VarChar(1024)
+  mailBody            String?   @db.LongText
+  calendarId          String?   @db.VarChar(256)
+  rescheduled         Int       @default(0)
+  reschedules         Reschedule[]
+  comments            Comment[]
+  changelog           Changelog[]
+
+  @@index([bearbeitetvon], name: "bearbeitet")
+  @@index([derenCIDid], name: "index_derenCIDid")
+  @@index([companyId], name: "index_lieferant")
+  @@index([startDateTime, endDateTime], name: "startenddatetime")
+  @@map("maintenancedb")
+}
+
+model Reschedule {
+  id            Int           @id @default(autoincrement())
+  label         String        @db.VarChar(16) @map("rid")
+  maintenanceid Int
+  maintenance   Maintenance   @relation(fields: [maintenanceid], references: [id])
+  rcounter      Int
+  user          String        @db.VarChar(64)
+  datetime      DateTime      @default(now()) @db.DateTime(0)
+  sdt           DateTime      @db.DateTime(0)
+  edt           DateTime      @db.DateTime(0)
+  reason        String?       @db.VarChar(256)
+  location      String?       @db.VarChar(256)
+  impact        String        @db.VarChar(256)
+  active        Boolean       @default(false)
+  sent          Int           @default(0) @db.TinyInt
+  @@map("reschedule")
+  @@unique([maintenanceid, rcounter])
+}

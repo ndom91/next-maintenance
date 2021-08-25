@@ -53,19 +53,19 @@ const Freeze = () => {
       },
       {
         headerName: "Company",
-        field: "name",
+        field: "company.name",
         width: 200,
         editable: false,
       },
       {
         headerName: "Start Date",
-        field: "startDateTime",
+        field: "startdatetime",
         width: 200,
         cellRenderer: "startdateTime",
       },
       {
         headerName: "End Date",
-        field: "endDateTime",
+        field: "enddatetime",
         width: 200,
         cellRenderer: "enddateTime",
       },
@@ -85,18 +85,18 @@ const Freeze = () => {
   }
 
   useEffect(() => {
-    fetch("/api/freeze")
+    fetch("/api/settings/freeze")
       .then((resp) => resp.json())
       .then((data) => {
         gridApi.current.hideOverlay()
-        setRowData(data.freezeQuery)
+        setRowData(data)
       })
       .catch((err) => console.error(err))
     // fill Companies Select
-    fetch("/api/companies/selectmaint")
+    fetch("/api/companies?select=true")
       .then((resp) => resp.json())
       .then((data) => {
-        setCompanySelections(data.companies)
+        setCompanySelections(data)
       })
       .catch((err) => console.error(`Error - ${err}`))
   }, [])
@@ -129,10 +129,12 @@ const Freeze = () => {
   }
 
   const handleDelete = () => {
-    fetch(`/api/settings/delete/freeze?id=${freezeIdToDelete}`)
+    fetch(`/api/settings/freeze?id=${freezeIdToDelete}`, {
+      method: "DELETE",
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.deleteFreezeQuery.affectedRows === 1) {
+        if (data.id) {
           Notify("success", `Freeze for ${freezeCompanyToDelete} Deleted`)
         } else {
           Notify("warning", "Error", data.err)
@@ -149,11 +151,9 @@ const Freeze = () => {
     if (gridApi.current) {
       const row = gridApi.current.getSelectedRows()
       if (row[0]) {
-        const freezeId = row[0].id
-        const freezeCompany = row[0].name
         setOpenConfirmDelete(!openConfirmDeleteModal)
-        setFreezeIdToDelete(freezeId)
-        setFreezeCompanyToDelete(freezeCompany)
+        setFreezeIdToDelete(row[0].id)
+        setFreezeCompanyToDelete(row[0].company.name)
       } else {
         Notify("warning", "Please select a freeze")
       }
@@ -161,31 +161,35 @@ const Freeze = () => {
   }
 
   const handleFreezeAdd = () => {
-    fetch(
-      `/api/settings/add/freeze?companyid=${encodeURIComponent(
-        newCompany.value
-      )}&startdatetime=${encodeURIComponent(
-        newStartDateTime
-      )}&enddatetime=${encodeURIComponent(
-        newEndDateTime
-      )}&notes=${encodeURIComponent(newNotes)}`
-    )
+    fetch(`/api/settings/freeze`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        companyid: newCompany.value,
+        startdatetime: new Date(newStartDateTime).toISOString(),
+        enddatetime: new Date(newEndDateTime).toISOString(),
+        notes: newNotes,
+      }),
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        const { insertId, affectedRows, warningCount } = data.insertFreezeQuery
-        const newCompanyName = newCompany.label
-        if (affectedRows === 1 && warningCount === 0) {
-          Notify("success", `Freeze for ${newCompanyName} Added`)
+        if (data.id) {
+          Notify("success", `Freeze for ${newCompany.label} Added`)
         } else {
           Notify("warning", "Error", data.err)
         }
         const newRowData = rowData
         newRowData.push({
-          id: insertId,
-          name: newCompany.label,
-          companyId: newCompany.value,
-          startDateTime: newStartDateTime,
-          endDateTime: newEndDateTime,
+          id: data.id,
+          company: {
+            name: newCompany.label,
+            id: newCompany.value,
+          },
+          companyid: newCompany.value,
+          startdatetime: newStartDateTime,
+          enddatetime: newEndDateTime,
           notes: newNotes,
         })
         setRowData(newRowData)
@@ -194,6 +198,7 @@ const Freeze = () => {
           value: "",
           label: "",
         })
+        setNewNotes("")
         setNewStartDateTime()
         setNewEndDateTime()
         gridApi.current.setRowData(newRowData)
@@ -203,25 +208,30 @@ const Freeze = () => {
 
   const handleCellEdit = (params) => {
     const id = params.data.id
-    const startdate = moment(params.data.startDateTime).format(
+    const startdate = moment(params.data.startdatetime).format(
       "YYYY.MM.DD HH:mm:ss"
     )
-    const enddate = moment(params.data.endDateTime).format(
+    const enddate = moment(params.data.enddatetime).format(
       "YYYY.MM.DD HH:mm:ss"
     )
     const notes = params.data.notes
 
-    fetch(
-      `/api/settings/edit/freeze?id=${id}&startdate=${encodeURIComponent(
-        startdate
-      )}&enddate=${encodeURIComponent(enddate)}&notes=${encodeURIComponent(
-        notes
-      )}`
-    )
+    fetch(`/api/settings/freeze`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: id,
+        startdate: new Date(startdate).toISOString(),
+        enddate: new Date(enddate).toISOString(),
+        notes: notes,
+      }),
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.updateFreezeQuery.affectedRows === 1) {
-          Notify("success", `${params.data.name} Freeze Updated`)
+        if (data.id) {
+          Notify("success", `${params.data.company.name} Freeze Updated`)
         } else {
           Notify("warning", "Error", data.err)
         }
@@ -382,20 +392,6 @@ const Freeze = () => {
       )}
     </div>
   )
-}
-
-Freeze.getInitialProps = async ({ req }) => {
-  const host = req && (req.headers["x-forwarded-host"] ?? req.headers["host"])
-  let protocol = "https:"
-  if (host.indexOf("localhost") > -1) {
-    protocol = "http:"
-  }
-  const pageRequest = `${protocol}//${host}/api/settings/freeze`
-  const res = await fetch(pageRequest)
-  const json = await res.json()
-  return {
-    jsonData: json,
-  }
 }
 
 export default Freeze

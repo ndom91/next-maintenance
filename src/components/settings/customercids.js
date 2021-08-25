@@ -48,24 +48,24 @@ const CustomerCIDs = () => {
       {
         headerName: "ID",
         field: "id",
-        width: 60,
+        width: 80,
         editable: false,
       },
       {
         headerName: "Newtelco CID",
-        field: "kundenCID",
+        field: "kundencid",
         width: 200,
       },
       {
         headerName: "Customer",
-        field: "name",
+        field: "kundecompany.name",
         width: 200,
         // sort: { direction: 'asc', priority: 0 },
         editable: false,
       },
       {
         headerName: "Their CID",
-        field: "derenCID",
+        field: "lieferant.derencid",
         width: 200,
         editable: false,
       },
@@ -74,6 +74,8 @@ const CustomerCIDs = () => {
         field: "protected",
         width: 80,
         cellRenderer: "protectedIcon",
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: { values: [true, false] },
         cellStyle: {
           display: "flex",
           justifyContent: "center",
@@ -91,18 +93,18 @@ const CustomerCIDs = () => {
   }
 
   useEffect(() => {
-    fetch("/api/customercids")
+    fetch("/api/settings/customercids")
       .then((resp) => resp.json())
       .then((data) => {
         gridApi.current.hideOverlay()
-        setRowData(data.customercids)
+        setRowData(data)
       })
       .catch((err) => console.error(err))
     // fill Companies Select
-    fetch("/api/companies/selectmaint")
+    fetch("/api/companies?select=true")
       .then((resp) => resp.json())
       .then((data) => {
-        setCompanySelections(data.companies)
+        setCompanySelections(data)
       })
       .catch((err) => console.error(`Error - ${err}`))
     // fill Supplier Select
@@ -140,10 +142,12 @@ const CustomerCIDs = () => {
   }
 
   const handleDelete = () => {
-    fetch(`/api/settings/delete/customercids?id=${customerCidIdToDelete}`)
+    fetch(`/api/settings/customercids?id=${customerCidIdToDelete}`, {
+      method: "DELETE",
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.deleteCustomerCidQuery.affectedRows === 1) {
+        if (data.id) {
           Notify("success", `${customerNameToDelete} Deleted`)
         } else {
           Notify("warning", "Error", data.err)
@@ -161,7 +165,7 @@ const CustomerCIDs = () => {
       const row = gridApi.current.getSelectedRows()
       if (row[0]) {
         const customerCidId = row[0].id
-        const customerCidName = row[0].kundenCID
+        const customerCidName = row[0].kundencid
         setOpenConfirmDeleteModal(!openConfirmDeleteModal)
         setCustomerCidIdToDelete(customerCidId)
         setCustomerNameToDelete(customerCidName)
@@ -172,20 +176,21 @@ const CustomerCIDs = () => {
   }
 
   const handleAddCustomerCid = () => {
-    fetch(
-      `/api/settings/add/customercids?customercid=${encodeURIComponent(
-        newNewtelcoCid
-      )}&company=${encodeURIComponent(
-        newCompanySelection.value
-      )}&protection=${encodeURIComponent(
-        newProtection
-      )}&supplier=${encodeURIComponent(newSupplierSelection.value)}`
-    )
+    fetch(`/api/settings/customercids`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        customercid: newNewtelcoCid,
+        company: newCompanySelection.value,
+        protection: newProtection ? "1" : "0",
+        supplier: newSupplierSelection.value,
+      }),
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        const { insertId, affectedRows, warningCount } =
-          data.insertCustomerCidQuery
-        if (affectedRows === 1 && warningCount === 0) {
+        if (data.id) {
           Notify("success", `${newNewtelcoCid} Added`)
         } else {
           Notify("warning", "Error", data.err)
@@ -193,9 +198,9 @@ const CustomerCIDs = () => {
         const newRowData = rowData
         const newProtectionValue = newProtection ? "1" : "0"
         newRowData.push({
-          id: insertId,
-          derenCID: newSupplierSelection.label,
-          kundenCID: newNewtelcoCid,
+          id: data.id,
+          derencid: newSupplierSelection.label,
+          kundencid: newNewtelcoCid,
           name: newCompanySelection.label,
           protected: newProtectionValue || "0",
         })
@@ -211,19 +216,23 @@ const CustomerCIDs = () => {
   }
 
   const handleCellEdit = (params) => {
-    const id = params.data.id
-    const newCustomerCid = params.data.kundenCID
-    const newProtected = params.data.protected
+    const { id, kundencid, protected: protection } = params.data
 
-    fetch(
-      `/api/settings/edit/customercids?id=${id}&customercid=${encodeURIComponent(
-        newCustomerCid
-      )}&protected=${encodeURIComponent(newProtected)}`
-    )
+    fetch(`/api/settings/customercids`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id,
+        kundencid,
+        protection,
+      }),
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.updateCustomerCidQuery.affectedRows === 1) {
-          Notify("success", `${newCustomerCid} Updated`)
+        if (data.id) {
+          Notify("success", `${kundencid} Updated`)
         } else {
           Notify("warning", "Error", data.err)
         }

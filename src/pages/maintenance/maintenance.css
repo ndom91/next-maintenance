@@ -177,10 +177,10 @@ textarea::-webkit-scrollbar-thumb,
 
 @keyframes glow {
   from {
-    box-shadow: 0 0 10px -10px rgba(102, 178, 70, 0.3);
+    box-shadow: 0 0 10px -10px rgba(102, 178, 70, 0.9);
   }
   to {
-    box-shadow: 0 0 0px 3px rgba(91, 201, 45, 0.2);
+    box-shadow: 0 0 0px 3px rgba(91, 201, 45, 0.4);
   }
 }
 
@@ -215,7 +215,7 @@ textarea::-webkit-scrollbar-thumb,
   padding: 5px 30px;
 }
 
-.timezone-select div[class='*-menu'] {
+.timezone-select div[class="*-menu"] {
   z-index: 9999;
 }
 

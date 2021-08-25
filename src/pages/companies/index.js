@@ -62,29 +62,29 @@ const Companies = ({ session, suppliers, company }) => {
       },
       {
         headerName: "Sender Maint ID",
-        field: "senderMaintenanceId",
+        field: "sendermaintenanceid",
         tooltipField: "senderMaintenanceId",
       },
-      {
-        headerName: "Their CID",
-        field: "derenCID",
-        tooltipField: "derenCID",
-      },
+      // {
+      //   headerName: "Their CID",
+      //   field: "derencid",
+      //   tooltipField: "derenCID",
+      // },
       {
         headerName: "Start",
-        field: "startDateTime",
+        field: "startdatetime",
         width: 160,
-        cellRenderer: "startdateTime",
+        cellRenderer: "startdatetime",
       },
       {
         headerName: "End",
-        field: "endDateTime",
+        field: "enddatetime",
         width: 160,
-        cellRenderer: "enddateTime",
+        cellRenderer: "enddatetime",
       },
       {
         headerName: "Newtelco CIDs",
-        field: "betroffeneCIDs",
+        field: "betroffenecids",
         tooltipField: "betroffeneCIDs",
       },
       {
@@ -94,7 +94,7 @@ const Companies = ({ session, suppliers, company }) => {
       },
       {
         headerName: "Updated",
-        field: "updatedAt",
+        field: "updatedat",
         cellRenderer: "updatedAt",
       },
       {
@@ -120,8 +120,8 @@ const Companies = ({ session, suppliers, company }) => {
     context: { componentParent: this },
     frameworkComponents: {
       editBtn: EditBtn,
-      startdateTime: StartDateTime,
-      enddateTime: EndDateTime,
+      startdatetime: StartDateTime,
+      enddatetime: EndDateTime,
       mailArrived: MailArrived,
       updatedAt: UpdatedAt,
       maintId: MaintId,
@@ -195,10 +195,10 @@ const Companies = ({ session, suppliers, company }) => {
 
   const handleNewCompanySelect = (selectedOption) => {
     setSelectedNewCompany(selectedOption)
-    fetch(`/api/companies/maintenances?id=${selectedOption}`)
+    fetch(`/api/companies?maintId=${selectedOption}`)
       .then((resp) => resp.json())
       .then((data) => {
-        setRowData(data.maintenances)
+        setRowData(data)
       })
   }
 
@@ -213,7 +213,7 @@ const Companies = ({ session, suppliers, company }) => {
                 style={{ width: 325 }}
                 value={selectedNewCompany}
                 onChange={handleNewCompanySelect}
-                data={suppliers.companies}
+                data={suppliers}
                 placeholder="Please select a Company"
               />
               <ButtonGroup>
@@ -276,7 +276,7 @@ export async function getServerSideProps({ req, query }) {
   if (host.indexOf("localhost") > -1) {
     protocol = "http:"
   }
-  const res2 = await fetch(`${protocol}//${host}/api/companies/selectmaint`)
+  const res2 = await fetch(`${protocol}//${host}/api/companies?select=true`)
   const suppliers = await res2.json()
   return {
     props: {

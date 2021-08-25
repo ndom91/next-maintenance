@@ -46,13 +46,13 @@ const SupplierCIDs = () => {
       },
       {
         headerName: "Company",
-        field: "name",
+        field: "company.name",
         width: 200,
         editable: false,
       },
       {
         headerName: "Supplier CID",
-        field: "derenCID",
+        field: "derencid",
         width: 200,
       },
     ],
@@ -64,18 +64,18 @@ const SupplierCIDs = () => {
   }
 
   useEffect(() => {
-    fetch("/api/lieferantcids/settings")
+    fetch("/api/settings/suppliercids")
       .then((resp) => resp.json())
       .then((data) => {
         gridApi.current.hideOverlay()
-        setRowData(data.lieferantCIDsResult)
+        setRowData(data)
       })
       .catch((err) => console.error(err))
     // fill Companies Select
-    fetch("/api/companies/selectmaint")
+    fetch("/api/companies?select=true")
       .then((resp) => resp.json())
       .then((data) => {
-        setCompanySelections(data.companies)
+        setCompanySelections(data)
       })
       .catch((err) => console.error(`Error - ${err}`))
   }, [])
@@ -99,10 +99,12 @@ const SupplierCIDs = () => {
   }
 
   const handleDelete = () => {
-    fetch(`/api/settings/delete/suppliercids?id=${supplierCidToDelete.id}`)
+    fetch(`/api/settings/suppliercids?id=${supplierCidToDelete.id}`, {
+      method: "DELETE",
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.deleteSupplierCidQuery.affectedRows === 1) {
+        if (data.id) {
           Notify("success", `${supplierCidToDelete.name} Deleted`)
         } else {
           Notify("warning", "Error", data.err)
@@ -120,7 +122,7 @@ const SupplierCIDs = () => {
       const row = gridApi.current.getSelectedRows()
       if (row[0]) {
         const supplierCidId = row[0].id
-        const supplierCid = row[0].derenCID
+        const supplierCid = row[0].derencid
         setOpenConfirmDeleteModal(!openConfirmDeleteModal)
         setSupplierCidToDelete({ id: supplierCidId, name: supplierCid })
       } else {
@@ -130,25 +132,30 @@ const SupplierCIDs = () => {
   }
 
   const handleAddSupplierCid = () => {
-    fetch(
-      `/api/settings/add/suppliercids?cid=${encodeURIComponent(
-        newSupplierCid
-      )}&company=${encodeURIComponent(newCompanySelection.value)}`
-    )
+    fetch(`/api/settings/suppliercids`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        cid: newSupplierCid,
+        company: newCompanySelection.value,
+      }),
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        const { insertId, affectedRows, warningCount } =
-          data.insertSupplierCidQuery
-        if (affectedRows === 1 && warningCount === 0) {
+        if (data.id) {
           Notify("success", `${newSupplierCid} Added`)
         } else {
           Notify("warning", "Error", data.err)
         }
         const newRowData = rowData
         newRowData.push({
-          id: insertId,
-          derenCID: newSupplierCid,
-          name: newCompanySelection.label,
+          id: data.id,
+          derencid: newSupplierCid,
+          company: {
+            name: newCompanySelection.label,
+          },
         })
         setRowData(newRowData)
         setOpenSupplierCidAdd(!openSupplierCidAdd)
@@ -159,16 +166,21 @@ const SupplierCIDs = () => {
 
   const handleCellEdit = (params) => {
     const { id } = params.data
-    const newSupplierCid = params.data.derenCID
+    const newSupplierCid = params.data.derencid
 
-    fetch(
-      `/api/settings/edit/suppliercids?id=${id}&suppliercid=${encodeURIComponent(
-        newSupplierCid
-      )}`
-    )
+    fetch(`/api/settings/suppliercids`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: id,
+        suppliercid: newSupplierCid,
+      }),
+    })
       .then((resp) => resp.json())
       .then((data) => {
-        if (data.updateSupplierCidQuery.affectedRows === 1) {
+        if (data.id) {
           Notify("success", `${newSupplierCid} Updated`)
         } else {
           Notify("warning", "Error", data.err)

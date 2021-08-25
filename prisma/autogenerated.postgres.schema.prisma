@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model changelog {
+  id       BigInt   @id @default(autoincrement())
+  mid      BigInt
+  user     String   @db.VarChar(64)
+  action   String   @db.VarChar(128)
+  field    String?  @db.VarChar(128)
+  datetime DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model comments {
+  id       BigInt   @id @default(autoincrement())
+  maintid  BigInt
+  body     String   @db.VarChar(1024)
+  datetime DateTime @default(now()) @db.Timestamptz(6)
+  user     String   @db.VarChar(128)
+}
+
+model companies {
+  id                   BigInt  @id @default(autoincrement())
+  name                 String  @db.VarChar(256)
+  maildomain           String  @db.VarChar(64)
+  maintenancerecipient String? @db.VarChar(255)
+
+  @@index([maildomain], name: "idx_16453_domains")
+}
+
+model freeze {
+  id            BigInt   @id @default(autoincrement())
+  companyid     BigInt
+  startdatetime DateTime @db.Timestamptz(6)
+  enddatetime   DateTime @db.Timestamptz(6)
+  notes         String?
+}
+
+model kundencid {
+  id           BigInt @id @default(autoincrement())
+  lieferantcid BigInt
+  kundencid    String @db.VarChar(1700)
+  protected    String @db.VarChar(16)
+  kunde        BigInt
+
+  @@index([kunde], name: "idx_16472_kunde")
+  @@index([lieferantcid], name: "idx_16472_lieferantcid")
+}
+
+model lieferantcid {
+  id        BigInt @id @default(autoincrement())
+  lieferant BigInt
+  derencid  String @db.VarChar(128)
+
+  @@index([lieferant], name: "idx_16481_lieferant")
+}
+
+model maintenancedb {
+  id                  BigInt    @id @default(autoincrement())
+  maileingang         DateTime? @db.Timestamptz(6)
+  sendermaintenanceid String?   @db.VarChar(256)
+  receivedmail        String?   @db.VarChar(256)
+  bearbeitetvon       String?   @db.VarChar(128)
+  lieferant           BigInt
+  derencidid          String?   @db.VarChar(256)
+  startdatetime       DateTime? @db.Timestamptz(6)
+  enddatetime         DateTime? @db.Timestamptz(6)
+  timezone            String?   @db.VarChar(64)
+  timezonelabel       String?   @db.VarChar(128)
+  postponed           String?   @db.VarChar(256)
+  reason              String?   @db.VarChar(256)
+  impact              String?   @db.VarChar(256)
+  location            String?   @db.VarChar(256)
+  maintnote           String?   @db.VarChar(512)
+  notes               String?
+  mailsentat          DateTime? @db.Timestamptz(6)
+  done                Boolean   @default(false)
+  inbearbeitung       Boolean   @default(false)
+  updatedat           DateTime? @db.Timestamptz(6)
+  updatedby           String?   @db.VarChar(64)
+  active              Boolean   @default(true)
+  cancelled           Boolean   @default(false)
+  emergency           Boolean   @default(false)
+  betroffenekunden    String?   @db.VarChar(1024)
+  betroffenecids      String?   @db.VarChar(1024)
+  mailbody            String?
+  calendarid          String?   @db.VarChar(256)
+  rescheduled         BigInt    @default(0)
+
+  @@index([bearbeitetvon], name: "idx_16487_bearbeitet")
+  @@index([derencidid], name: "idx_16487_index_derencidid")
+  @@index([lieferant], name: "idx_16487_index_lieferant")
+  @@index([startdatetime, enddatetime], name: "idx_16487_startenddatetime")
+}
+
+model reschedule {
+  id            BigInt   @id @default(autoincrement())
+  rid           String   @db.VarChar(16)
+  maintenanceid BigInt
+  rcounter      BigInt
+  user          String   @db.VarChar(64)
+  datetime      DateTime @default(now()) @db.Timestamptz(6)
+  sdt           DateTime @db.Timestamptz(6)
+  edt           DateTime @db.Timestamptz(6)
+  reason        String?  @db.VarChar(256)
+  location      String?  @db.VarChar(256)
+  impact        String   @db.VarChar(256)
+  active        Boolean  @default(false)
+  sent          Int      @default(0) @db.SmallInt
+}

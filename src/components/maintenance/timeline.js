@@ -8,10 +8,10 @@ const Changelog = ({ maintId }) => {
 
   useEffect(() => {
     setFetching(true)
-    fetch(`/api/maintenances/history?mid=${maintId}`)
+    fetch(`/api/changelog?mid=${maintId}`)
       .then((resp) => resp.json())
       .then((data) => {
-        setMaintHistory(data.historyQuery)
+        setMaintHistory(data)
         setFetching(false)
       })
       .catch((err) => console.error(err))

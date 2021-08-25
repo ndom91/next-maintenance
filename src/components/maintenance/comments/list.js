@@ -66,12 +66,12 @@ const CommentList = ({ user, id, initialComment }) => {
   const submitComment = () => {
     if (!comment) return Notify("error", "No Comment")
 
-    fetch("/api/comments/post", {
-      method: "post",
+    fetch("/api/comments", {
+      method: "POST",
       body: JSON.stringify({
-        body: comment,
-        user: user,
-        maintId: id,
+        comment,
+        user,
+        id,
       }),
       headers: {
         "Content-Type": "application/json",
@@ -79,14 +79,14 @@ const CommentList = ({ user, id, initialComment }) => {
     })
       .then((r) => r.json())
       .then((resp) => {
-        if (resp.comments.affectedRows === 1) {
+        if (resp.id) {
           const newComments = comments
           const now = new Date()
           newComments.unshift({
             user: user,
             datetime: now.toISOString(),
             body: comment,
-            id: resp.comments.insertId,
+            id: resp.id,
           })
           setComments(newComments)
           setComment("")
@@ -99,8 +99,8 @@ const CommentList = ({ user, id, initialComment }) => {
   }
 
   const deleteComment = (commentId) => {
-    fetch("/api/comments/delete", {
-      method: "post",
+    fetch("/api/comments", {
+      method: "DELETE",
       body: JSON.stringify({
         id: commentId,
       }),
@@ -110,7 +110,7 @@ const CommentList = ({ user, id, initialComment }) => {
     })
       .then((r) => r.json())
       .then((resp) => {
-        if (resp.comments.affectedRows === 1) {
+        if (resp.id) {
           const newComments = comments.filter((el) => el.id !== commentId)
           setComments(newComments)
           Notify("success", "Comment Deleted")

@@ -1,9 +1,12 @@
 import { Icon, IconButton, Dropdown } from "rsuite"
 
 export const sentBtn = ({ data, context }) => {
-  const { moveCalendarEntry, toggleRescheduleDelete, toggleRescheduleSentBtn } =
-    context
+  const {
+    moveCalendarEntry,
+    toggleRescheduleDelete /*, toggleRescheduleSentBtn */,
+  } = context
   const { startDateTime, endDateTime, rcounter } = data
+  console.log(data, context)
   return (
     <Dropdown
       renderTitle={() => {
@@ -13,9 +16,9 @@ export const sentBtn = ({ data, context }) => {
       }}
       placement="leftStart"
     >
-      <Dropdown.Item onClick={() => toggleRescheduleSentBtn(rcounter)}>
+      {/* <Dropdown.Item onClick={() => toggleRescheduleSentBtn(rcounter, data)}>
         Toggle Sent
-      </Dropdown.Item>
+      </Dropdown.Item> */}
       <Dropdown.Item
         onClick={() => moveCalendarEntry(startDateTime, endDateTime, rcounter)}
       >

@@ -1,8 +1,9 @@
-node_modules
+.env
 .next
 .vscode
-out
 .env.local
+out
+node_modules
 oauth*.json
 serviceacct.json
 ecosystem.config.js.og

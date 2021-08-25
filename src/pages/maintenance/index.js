@@ -244,7 +244,11 @@ const AutoSave = ({ debounceMs, id }) => {
 const Maintenance = ({ session, serverData, suppliers }) => {
   const rescheduleData = useStore((state) => state.rescheduleData)
 
-  const [maintenance, setMaintenance] = useState(serverData.profile)
+  const [maintenance, setMaintenance] = useState({
+    ...serverData,
+    name: serverData.suppliercompany?.name ?? "",
+    maildomain: serverData.suppliercompany?.maildomain ?? "",
+  })
   const [frozenCompany, setFrozenCompany] = useState("")
   const [openReadModal, setOpenReadModal] = useState(false)
   const [openPreviewModal, setOpenPreviewModal] = useState(false)
@@ -259,19 +263,19 @@ const Maintenance = ({ session, serverData, suppliers }) => {
   const [sentProgress, setSentProgress] = useState(0)
   const [activeTab, setActiveTab] = useState("customer")
   const [maintHistory, setMaintHistory] = useState({
-    timezone: serverData.profile?.timezone || undefined,
-    supplier: serverData.profile?.lieferant,
-    senderMaintenanceId: serverData.profile?.senderMaintenanceId,
-    startDateTime: serverData.profile?.startDateTime,
-    endDateTime: serverData.profile?.endDateTime,
-    supplierCids: serverData.profile?.derenCIDid?.split(",").map(Number) || "",
-    impact: serverData.profile?.impact,
-    location: serverData.profile?.location,
-    reason: serverData.profile?.reason,
-    maintNote: serverData.profile?.maintNote,
-    cancelled: !!+serverData.profile?.cancelled,
-    emergency: !!+serverData.profile?.emergency,
-    done: !!+serverData.profile?.done,
+    timezone: serverData?.timezone || null,
+    supplier: serverData?.supplierid,
+    sendermaintenanceid: serverData?.sendermaintenanceid,
+    startdatetime: serverData?.startdatetime,
+    enddatetime: serverData?.enddatetime,
+    suppliercids: serverData?.derencidid,
+    impact: serverData?.impact,
+    location: serverData?.location,
+    reason: serverData?.reason,
+    maintnote: serverData?.maintnote,
+    cancelled: !!+serverData?.cancelled,
+    emergency: !!+serverData?.emergency,
+    done: !!+serverData?.done,
   })
   const [frozenState, setFrozenState] = useState({
     recipient: "",
@@ -286,8 +290,8 @@ const Maintenance = ({ session, serverData, suppliers }) => {
 
   const sendMailBtns = ({
     data: {
-      maintenanceRecipient,
-      kundenCID,
+      maintenancerecipient,
+      kundencid,
       frozen,
       name,
       protected: protection,
@@ -298,7 +302,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
         <Whisper placement="bottom" speaker={<Tooltip>Direct Send</Tooltip>}>
           <IconButton
             onClick={() =>
-              prepareDirectSend(maintenanceRecipient, kundenCID, frozen, name)
+              prepareDirectSend(maintenancerecipient, kundencid, frozen, name)
             }
             size="sm"
             appearance="ghost"
@@ -308,7 +312,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
         <Whisper placement="bottom" speaker={<Tooltip>Preview Mail</Tooltip>}>
           <IconButton
             onClick={() =>
-              togglePreviewModal(maintenanceRecipient, kundenCID, protection)
+              togglePreviewModal(maintenancerecipient, kundencid, protection)
             }
             size="sm"
             appearance="ghost"
@@ -344,7 +348,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
     columnDefs: [
       {
         headerName: "CID",
-        field: "kundenCID",
+        field: "kundencid",
         width: 100,
         sort: { direction: "asc", priority: 0 },
         cellRenderer: "customerCid",
@@ -369,7 +373,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
       },
       {
         headerName: "Recipient",
-        field: "maintenanceRecipient",
+        field: "maintenancerecipient",
         width: 150,
       },
       {
@@ -417,23 +421,23 @@ const Maintenance = ({ session, serverData, suppliers }) => {
   }
 
   useEffect(() => {
-    if (serverData.profile.id === "NEW") {
+    if (serverData.id === "NEW") {
       // prepare NEW maintenance
       const username = session.user.email.substr(
         0,
         session.user.email.indexOf("@")
       )
-      fetch(`/api/companies/domain?id=${serverData.profile.name}`)
+      fetch(`/api/companies?domain=${serverData.name}`)
         .then((resp) => resp.json())
         .then((data) => {
-          if (!data.companyResults[0]) {
+          if (!data[0]) {
             fetchSupplierCids()
             return
           }
-          const companyId = data.companyResults[0].id
-          const companyName = data.companyResults[0].name
+          const companyId = data[0].id
+          const companyName = data[0].name
           setMaintenance({
-            ...serverData.profile,
+            ...serverData,
             name: companyName,
             lieferant: companyId,
             bearbeitetvon: username,
@@ -446,18 +450,20 @@ const Maintenance = ({ session, serverData, suppliers }) => {
         .catch((err) => console.error(`Error - ${err}`))
     } else {
       // prepare page for existing maintenance
-      const { cancelled, emergency, done } = serverData.profile
+      const { cancelled, emergency, done } = serverData
 
       setMaintenance({
-        ...serverData.profile,
+        ...serverData,
+        name: serverData.suppliercompany.name,
+        maildomain: serverData.suppliercompany.maildomain,
         cancelled: !!+cancelled,
         emergency: !!+emergency,
         done: !!+done,
       })
-      fetchSupplierCids(serverData.profile.lieferant)
+      fetchSupplierCids(serverData.lieferant)
 
-      const startDateTime = serverData.profile.startDateTime
-      const endDateTime = serverData.profile.endDateTime
+      const startDateTime = serverData.startdatetime
+      const endDateTime = serverData.enddatetime
       if (
         startDateTime &&
         endDateTime &&
@@ -471,7 +477,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
         setImpactPlaceholder(impactCalculation)
       }
     }
-  }, [serverData.profile])
+  }, [serverData])
 
   /// /////////////////////////////////////////////////////////
   //
@@ -519,8 +525,8 @@ const Maintenance = ({ session, serverData, suppliers }) => {
       gridApi.current.hideOverlay()
       return
     }
-    fetch("/api/customercids/maint", {
-      method: "post",
+    fetch("/api/settings/customercids", {
+      method: "POST",
       body: JSON.stringify({
         cids: lieferantCidId,
       }),
@@ -535,13 +541,23 @@ const Maintenance = ({ session, serverData, suppliers }) => {
         if (maintenance.done) {
           currentSentStatus = 1
         }
-        const kundencids = data.kundenCIDsResult
-        kundencids.forEach((cid) => {
-          cid.sent = currentSentStatus
-          cid.frozen = false
-          cid.protected = !!+cid.protected
+        const newKundenCids = []
+        data.forEach((cid) => {
+          cid.kundencid.forEach((kundenCircuit) => {
+            newKundenCids.push({
+              maildomain: kundenCircuit.kundecompany.maildomain,
+              maintenancerecipient:
+                kundenCircuit.kundecompany.maintenancerecipient,
+              name: kundenCircuit.kundecompany.name,
+              kundencid: kundenCircuit.kundencid,
+              companyid: kundenCircuit.companyid,
+              protected: !!+kundenCircuit.protected,
+              sent: currentSentStatus,
+              frozen: false,
+            })
+          })
         })
-        const uniqueKundenCids = getUnique(kundencids, "kundenCID")
+        const uniqueKundenCids = getUnique(newKundenCids, "kundencid")
         setCustomerCids(uniqueKundenCids)
         gridApi.current.hideOverlay()
         uniqueKundenCids.length && checkFreezeStatus(uniqueKundenCids)
@@ -550,45 +566,50 @@ const Maintenance = ({ session, serverData, suppliers }) => {
   }
 
   const checkFreezeStatus = (cids) => {
-    const startDate = maintenance.startDateTime
-    const endDate = maintenance.endDateTime
     const uniqueCustomers = []
     cids.forEach((cid) => {
-      uniqueCustomers.push(cid.kunde)
+      if (!cid.companyid) return
+      uniqueCustomers.push(cid.companyid)
     })
-    fetch("/api/maintenances/freeze", {
-      method: "post",
-      body: JSON.stringify({
-        companys: [...new Set(uniqueCustomers)],
-        startDate: startDate,
-        endDate: endDate,
-      }),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-      .then((resp) => resp.json())
-      .then((data) => {
-        if (data.freezeQuery.length !== 0) {
-          const customerCidEntries = customerCids
-          data.freezeQuery.forEach((freezeResult) => {
-            const frozenCidIndex = customerCidEntries.findIndex(
-              (el) => el.kunde === freezeResult.companyId
-            )
-            Notify(
-              "error",
-              "Network Freeze",
-              `${freezeResult.name} has active freeze during this time period!`
-            )
-            customerCidEntries[frozenCidIndex].frozen = true
-          })
-          setCustomerCids(customerCidEntries)
-          if (gridApi.current) {
-            gridApi.current.refreshCells()
-          }
-        }
+    if ([...new Set(uniqueCustomers)].length) {
+      fetch("/api/maintenances/freeze", {
+        method: "POST",
+        body: JSON.stringify({
+          companys: [...new Set(uniqueCustomers)],
+          startdate: moment
+            .tz(maintenance.startdatetime, maintenance.timezone)
+            .format(),
+          enddate: moment
+            .tz(maintenance.enddatetime, maintenance.timezone)
+            .format(),
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
       })
-      .catch((err) => console.error(`Error - ${err}`))
+        .then((resp) => resp.json())
+        .then((data) => {
+          if (data.length !== 0) {
+            const customerCidEntries = customerCids
+            data.forEach((freezeResult) => {
+              const frozenCidIndex = customerCidEntries.findIndex(
+                (el) => el.kunde === freezeResult.companyid
+              )
+              Notify(
+                "error",
+                "Network Freeze",
+                `${freezeResult.company.name} has active freeze during this time period!`
+              )
+              customerCidEntries[frozenCidIndex].frozen = true
+            })
+            setCustomerCids(customerCidEntries)
+            if (gridApi.current) {
+              gridApi.current.refreshCells()
+            }
+          }
+        })
+        .catch((err) => console.error(`Error - ${err}`))
+    }
   }
 
   /// /////////////////////////////////////////////////////////
@@ -632,8 +653,8 @@ const Maintenance = ({ session, serverData, suppliers }) => {
     )
     const utcStart1 = rawStart.tz("GMT").format("YYYY-MM-DD HH:mm:ss")
     const utcEnd1 = rawEnd.tz("GMT").format("YYYY-MM-DD HH:mm:ss")
-    const utcStart = utcStart1 || serverData.profile.startDateTime
-    const utcEnd = utcEnd1 || serverData.profile.endDateTime
+    const utcStart = utcStart1 || serverData.startdatetime
+    const utcEnd = utcEnd1 || serverData.enddatetime
 
     let maintenanceIntro =
       "We would like to inform you about planned work on the following CID(s):"
@@ -740,7 +761,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
     isFromSendAll
   ) => {
     const activeRowIndex = customerCids.findIndex(
-      (el) => el.kundenCID === customerCid
+      (el) => el.kundencid === customerCid
     )
     const kundenCidRow = customerCids[activeRowIndex]
     if (kundenCidRow && kundenCidRow.frozen) {
@@ -777,7 +798,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
             Notify("success", "Mail Sent")
           }
           const activeCustomer = customerCids.find(
-            (el) => el.kundenCID === customerCid
+            (el) => el.kundencid === customerCid
           )
           if (activeCustomer) {
             if (maintenance.cancelled === true && maintenance.done === true) {
@@ -788,7 +809,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
             const updatedKundenCids = [...customerCids, activeCustomer]
             const deduplicatedKundenCids = getUnique(
               updatedKundenCids,
-              "kundenCID"
+              "kundencid"
             )
             setCustomerCids(deduplicatedKundenCids)
             if (isFromPreview) {
@@ -799,9 +820,17 @@ const Maintenance = ({ session, serverData, suppliers }) => {
             const user = session.user.email
             const action = "sent to"
             const field = activeCustomer.name
-            fetch(
-              `/api/history?mid=${maintId}&user=${user}&field=${field}&action=${action}`
-            ).catch((err) => console.error(`Error updating Audit Log - ${err}`))
+            fetch(`/api/changelog`, {
+              method: "POST",
+              body: JSON.stringify({
+                maintId,
+                user,
+                field,
+                action,
+              }),
+            }).catch((err) =>
+              console.error(`Error updating Audit Log - ${err}`)
+            )
           }
         } else {
           Notify("error", "Error Sending Mail")
@@ -861,7 +890,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
 
     let cids = ""
     customerCids.forEach((cid) => {
-      cids += ` ${cid.kundenCID}`
+      cids += ` ${cid.kundencid}`
     })
     cids = cids.trim()
 
@@ -936,7 +965,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
 
     let cids = ""
     customerCids.forEach((cid) => {
-      cids += ` ${cid.kundenCID}`
+      cids += ` ${cid.kundencid}`
     })
     cids = cids.trim()
 
@@ -1020,7 +1049,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
             incomingSubject: data.subject,
             incomingDate: data.date,
             incomingAttachments: data.attachments,
-            incomingDomain: serverData.profile.mailDomain,
+            incomingDomain: serverData.maildomain,
           })
           setOpenReadModal(!openReadModal)
         })
@@ -1055,14 +1084,14 @@ const Maintenance = ({ session, serverData, suppliers }) => {
       "yyyy-MM-dd HH:mm:ss"
     )
 
-    fetch("/api/maintenances/save/create", {
-      method: "post",
+    fetch("/api/maintenances", {
+      method: "POST",
       body: JSON.stringify({
         bearbeitetvon,
         lieferant,
-        mailId,
-        updatedAt: updatedAtFormatted,
-        maileingang: incomingFormatted,
+        mailid: mailId,
+        updatedat: moment(updatedAtFormatted).format(),
+        maileingang: moment(incomingFormatted).format(),
       }),
       headers: {
         "Content-Type": "application/json",
@@ -1070,13 +1099,17 @@ const Maintenance = ({ session, serverData, suppliers }) => {
     })
       .then((resp) => resp.json())
       .then((data) => {
-        const newId = data.newId["LAST_INSERT_ID()"]
-        const newMaint = { ...maintenance, id: newId }
+        const newMaint = {
+          ...maintenance,
+          id: data.id,
+          name: data.suppliercompany.name,
+          maildomain: data.suppliercompany.maildomain,
+        }
         setMaintenance(newMaint)
-        const newLocation = `/maintenance?id=${newId}`
+        const newLocation = `/maintenance?id=${data.id}`
         router.push(newLocation, newLocation, { shallow: false })
 
-        if (data.status === 200 && data.statusText === "OK") {
+        if (data.id) {
           Notify("success", "Create Success")
         } else {
           Notify("error", "Create Error", data.err)
@@ -1356,7 +1389,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
           value={
             tzOptions
               ? tzOptions.find((option) => option.value === field.value)
-              : ""
+              : null
           }
           onChange={(option) => form.setFieldValue(field.name, option.value)}
           className="timezone-select"
@@ -1387,9 +1420,8 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                 setMaintenance({
                   ...maintenance,
                   lieferant: option,
-                  name: suppliers.companies.find(
-                    (options) => options.value === option
-                  ).label,
+                  name: suppliers.find((options) => options.value === option)
+                    .label,
                 })
                 setSupplierCids(data.lieferantCIDsResult)
                 setCustomerCids([])
@@ -1399,7 +1431,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
             form.setFieldValue(field.name, option)
             form.setFieldValue("supplierCids", [])
           }}
-          data={suppliers?.companies ?? []}
+          data={suppliers ?? []}
           placeholder="Please select a Supplier"
         />
       )
@@ -1512,28 +1544,25 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                     validateOnChange={false}
                     validateOnBlur={false}
                     initialValues={{
-                      timezone: serverData.profile.timezone,
-                      senderMaintenanceId:
-                        serverData.profile.senderMaintenanceId,
-                      supplier: serverData.profile.lieferant,
-                      startDateTime: serverData.profile.startDateTime,
-                      endDateTime: serverData.profile.endDateTime,
-                      supplierCids:
-                        serverData.profile.derenCIDid?.split(",").map(Number) ||
-                        "",
-                      impact: serverData.profile.impact,
-                      location: serverData.profile.location,
-                      reason: serverData.profile.reason,
-                      maintNote: serverData.profile.maintNote,
-                      cancelled: !!+serverData.profile.cancelled,
-                      emergency: !!+serverData.profile.emergency,
-                      done: !!+serverData.profile.done,
+                      timezone: serverData.timezone || null,
+                      sendermaintenanceid: serverData.sendermaintenanceid,
+                      supplier: serverData.supplierid,
+                      startdatetime: serverData.startdatetime,
+                      enddatetime: serverData.enddatetime,
+                      suppliercids: serverData.derencidid,
+                      impact: serverData.impact,
+                      location: serverData.location,
+                      reason: serverData.reason,
+                      maintnote: serverData.maintnote,
+                      cancelled: !!+serverData.cancelled,
+                      emergency: !!+serverData.emergency,
+                      done: !!+serverData.done,
                     }}
                     onSubmit={async (values, formikHelpers) => {
                       const diff = objDiff(maintHistory, values)
                       setMaintHistory(values)
-                      if (values.supplierCids && !customerCids.length) {
-                        fetchCustomerCids(values.supplierCids)
+                      if (values.suppliercids && !customerCids.length) {
+                        fetchCustomerCids(values.suppliercids)
                       }
                       if (Object.keys(diff).length) {
                         if (maintenance.id === "NEW") {
@@ -1545,8 +1574,8 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                           return
                         }
                         try {
-                          await fetch("/api/maintenances/saveAll", {
-                            method: "post",
+                          await fetch("/api/maintenances", {
+                            method: "PUT",
                             body: JSON.stringify({
                               id: maintenance.id,
                               values: values,
@@ -1631,7 +1660,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                           </Col>
                           <Col sm={12} xs={24}>
                             <FormGroup>
-                              <ControlLabel htmlFor="senderMaintenanceId">
+                              <ControlLabel htmlFor="sendermaintenanceid">
                                 Sender Maintenance ID
                               </ControlLabel>
                               <HelpBlock
@@ -1642,7 +1671,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                                 For Documentation Purposes Only
                               </HelpBlock>
                               <FastField
-                                name="senderMaintenanceId"
+                                name="sendermaintenanceid"
                                 component={MyTextinput}
                                 maintId={maintenance.id}
                               />
@@ -1687,9 +1716,9 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                                 Start Date/Time
                               </ControlLabel>
                               <FastField
-                                name="startDateTime"
-                                startDateTime={values.startDateTime}
-                                endDateTime={values.endDateTime}
+                                name="startdatetime"
+                                startDateTime={values.startdatetime}
+                                endDateTime={values.enddatetime}
                                 setImpactPlaceholder={setImpactPlaceholder}
                                 component={MyDateTime}
                                 maintId={maintenance.id}
@@ -1701,7 +1730,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                                 {moment
                                   .tz(
                                     moment.tz(
-                                      values.startDateTime,
+                                      values.startdatetime,
                                       values.timezone
                                     ),
                                     "Europe/Berlin"
@@ -1723,9 +1752,9 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                                 End Date/Time
                               </ControlLabel>
                               <FastField
-                                name="endDateTime"
-                                startDateTime={values.startDateTime}
-                                endDateTime={values.endDateTime}
+                                name="enddatetime"
+                                startDateTime={values.startdatetime}
+                                endDateTime={values.enddatetime}
                                 setImpactPlaceholder={setImpactPlaceholder}
                                 component={MyDateTime}
                                 maintId={maintenance.id}
@@ -1737,7 +1766,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                                 {moment
                                   .tz(
                                     moment.tz(
-                                      values.endDateTime,
+                                      values.enddatetime,
                                       values.timezone
                                     ),
                                     "Europe/Berlin"
@@ -1872,7 +1901,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                           <Col sm={24}>
                             <FormGroup>
                               <ControlLabel
-                                htmlFor="maintNote"
+                                htmlFor="maintnote"
                                 style={{
                                   display: "flex",
                                   justifyContent: "space-between",
@@ -1885,8 +1914,8 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                                 </HelpBlock>
                               </ControlLabel>
                               <FastField
-                                name="maintNote"
-                                key="maintNote"
+                                name="maintnote"
+                                key="maintnote"
                                 component={MyTextarea}
                                 maintId={maintenance.id}
                               />
@@ -1972,7 +2001,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                         <CommentList
                           user={session.user.email}
                           id={maintenance.id}
-                          initialComment={serverData.profile.notes}
+                          initialComment={serverData.notes}
                         />
                       )}
                     </Col>
@@ -2031,7 +2060,7 @@ const Maintenance = ({ session, serverData, suppliers }) => {
                                       pagination
                                       immutableData
                                       getRowNodeId={(data) => {
-                                        return data.kundenCID
+                                        return data.kundencid
                                       }}
                                     />
                                   </div>
@@ -2120,19 +2149,23 @@ export async function getServerSideProps({ req, query }) {
   if (host.indexOf("localhost") > -1) {
     protocol = "http:"
   }
-  const res2 = await fetch(`${protocol}//${host}/api/companies/selectmaint`)
-  const suppliers = await res2.json()
+  const companiesResponse = await fetch(
+    `${protocol}//${host}/api/companies?select=true`
+  )
+  const suppliers = await companiesResponse.json()
   if (query.id === "NEW") {
     return {
       props: {
-        serverData: { profile: query },
+        serverData: query,
         suppliers,
         session: await getSession({ req }),
       },
     }
   } else {
-    const res = await fetch(`${protocol}//${host}/api/maintenances/${query.id}`)
-    const serverData = await res.json()
+    const maintenanceRes = await fetch(
+      `${protocol}//${host}/api/maintenances?mid=${query.id}`
+    )
+    const serverData = await maintenanceRes.json()
     return {
       props: {
         serverData,

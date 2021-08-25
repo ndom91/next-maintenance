@@ -1,6 +1,6 @@
 export const ProtectedIcon = ({ node }) => {
   if (node && node.data) {
-    if (node.data.protected === "1" || node.data.protected === true) {
+    if (node.data.protected == 1 || node.data.protected == true) {
       // Lock Closed
       return (
         <div style={{ height: "32px", width: "32px" }}>
@@ -13,7 +13,7 @@ export const ProtectedIcon = ({ node }) => {
           </svg>
         </div>
       )
-    } else if (node.data.protected === "0" || node.data.protected === false) {
+    } else if (node.data.protected == 0 || node.data.protected == false) {
       // Lock Open
       return (
         <div style={{ height: "32px", width: "32px" }}>

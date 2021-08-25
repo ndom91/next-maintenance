@@ -1,16 +1,37 @@
-const db = require("../../../lib/db")
-const escape = require("sql-template-strings")
+import prisma from "../../../lib/prisma"
 
-module.exports = async (req, res) => {
-  const companyIds = req.body.companys
-  const startDate = req.body.startDate
-  const endDate = req.body.endDate
-  const freezeQuery = await db.query(escape`
-    SELECT companies.name, companies.id
-    FROM freeze 
-    LEFT JOIN companies ON freeze.companyId = companies.id
-    WHERE (${startDate} <= endDateTime AND ${endDate} >= startDateTime) 
-      AND freeze.companyId IN (${companyIds})
-  `)
-  res.status(200).json({ freezeQuery })
+export default async function handle(req, res) {
+  const { query, body, method } = req
+
+  if (method === "POST") {
+    const { companys, startdate, enddate } = body
+
+    const maintenances = await prisma.freeze.findMany({
+      include: {
+        company: true,
+      },
+      where: {
+        AND: {
+          companyid: {
+            in: companys,
+          },
+          OR: [
+            {
+              startdatetime: {
+                lte: startdate,
+              },
+              enddatetime: {
+                gte: enddate,
+              },
+            },
+          ],
+        },
+      },
+    })
+
+    res.status(200).json(maintenances)
+  } else {
+    res.setHeader("Allow", ["POST"])
+    res.status(405).end(`Method ${method} Not Allowed`)
+  }
 }
